@@ -61,16 +61,12 @@ export class LeaderboardSortCriterionDto {
 }
 
 // Класс параметров запроса для получения списка лучших игроков
-// Наследуется от BaseQueryParams (вероятно, содержит pageNumber, pageSize и т.д.)
 export class GetTopUsersQueryParams extends BaseQueryParams {
   // Поле необязательное (можно не передавать в запросе)
   @IsOptional()
 
   // Трансформация входных данных перед валидацией
   @Transform(({ value }) => {
-    // Если sort не передан, используем дефолтную сортировку:
-    // 1. По среднему баллу (убывание)
-    // 2. По сумме баллов (убывание)
     if (!value) {
       return buildDefaultSortCriteria();
     }

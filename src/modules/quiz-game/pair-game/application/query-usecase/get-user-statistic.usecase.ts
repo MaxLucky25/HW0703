@@ -22,7 +22,7 @@ export class GetUserStatisticUseCase
     // Возвращаем данные из Entity (с дефолтными значениями или реальными)
     return UserStatisticViewDto.mapToView({
       sumScore: statistic.sumScore,
-      avgScores: statistic.avgScores, // вычисляемое поле из Entity getter
+      avgScores: statistic.avgScores,
       gamesCount: statistic.gamesCount,
       winsCount: statistic.winsCount,
       lossesCount: statistic.lossesCount,

@@ -96,29 +96,12 @@ export class UserStatisticRepository {
     qb: SelectQueryBuilder<UserStatistic>,
     sort: LeaderboardSortCriterionDto[],
   ): void {
-    const avgScoreSelectAlias = 'stat_avg_score_sort';
-    const avgScoreSelectExpression =
-      'stat.sum_score::numeric / NULLIF(stat.games_count, 0)';
-    let avgScoreSelectAdded = false;
-
-    // Проходим по каждому критерию сортировки
     sort.forEach((criterion, index) => {
       // Преобразуем направление в верхний регистр для SQL ('asc' -> 'ASC')
       const direction = criterion.direction.toUpperCase() as 'ASC' | 'DESC';
 
       // Определяем колонку для сортировки
-      const column =
-        criterion.field === 'avgScores'
-          ? // Для среднего балла используем вычисляемое поле, совпадающее с геттером Entity
-            (() => {
-              if (!avgScoreSelectAdded) {
-                qb.addSelect(avgScoreSelectExpression, avgScoreSelectAlias);
-                avgScoreSelectAdded = true;
-              }
-              return avgScoreSelectAlias;
-            })()
-          : // Для остальных полей используем имя колонки
-            `stat.${criterion.field}`;
+      const column = `stat.${criterion.field}`;
 
       // Первый критерий добавляем через orderBy
       if (index === 0) {

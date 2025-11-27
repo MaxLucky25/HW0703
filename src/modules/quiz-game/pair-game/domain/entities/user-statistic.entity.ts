@@ -37,24 +37,18 @@ export class UserStatistic {
   @Column({ name: 'draws_count', default: 0 })
   drawsCount: number;
 
+  @Column({
+    name: 'avg_score',
+    type: 'double precision',
+    default: 0,
+  })
+  avgScores: number;
+
   @UpdateDateColumn({
     name: 'updated_at',
     type: 'timestamp',
   })
   updatedAt: Date;
-
-  /**
-   * Вычисляемое поле для среднего счета
-   * Округляется до 2 знаков после запятой, но целые числа показываются без десятичных знаков
-   */
-  get avgScores(): number {
-    if (this.gamesCount === 0) return 0;
-
-    const avgScore = this.sumScore / this.gamesCount;
-    return Number.isInteger(avgScore)
-      ? avgScore
-      : Math.round(avgScore * 100) / 100;
-  }
 
   /**
    * Статический метод для создания новой статистики
@@ -63,6 +57,7 @@ export class UserStatistic {
     const statistic = new UserStatistic();
     statistic.userId = userId;
     // Явная инициализация для избежания NaN
+    statistic.avgScores = 0;
     statistic.sumScore = 0;
     statistic.gamesCount = 0;
     statistic.winsCount = 0;
@@ -88,5 +83,19 @@ export class UserStatistic {
     } else {
       this.drawsCount += 1;
     }
+
+    this.recalculateAvgScore();
+  }
+
+  recalculateAvgScore(): void {
+    if (this.gamesCount === 0) {
+      this.avgScores = 0;
+      return;
+    }
+
+    const rawAvg = this.sumScore / this.gamesCount;
+    this.avgScores = Number.isInteger(rawAvg)
+      ? rawAvg
+      : Math.round(rawAvg * 100) / 100;
   }
 }
