@@ -10,7 +10,6 @@ import { Question } from '../questions/domain/entities/question.entity';
 import { PairGameRepository } from './infrastructure/pair-game.repository';
 import { PlayerRepository } from './infrastructure/player.repository';
 import { GameQuestionRepository } from './infrastructure/game-question.repository';
-import { GameAnswerRepository } from './infrastructure/game-answer.repository';
 import { PairGameQueryRepository } from './infrastructure/query/pair-game.query-repository';
 import { UserStatisticRepository } from './infrastructure/user-statistic.repository';
 import { MatchmakingService } from './domain/services/matchmaking.service';
@@ -20,6 +19,7 @@ import { GetCurrentGameUseCase } from './application/query-usecase/get-current-g
 import { GetGameByIdUseCase } from './application/query-usecase/get-game-by-id.usecase';
 import { GetMyGamesUseCase } from './application/query-usecase/get-my-games.usecase';
 import { GetUserStatisticUseCase } from './application/query-usecase/get-user-statistic.usecase';
+import { GetTopUsersUseCase } from './application/query-usecase/get-top-users.usecase';
 import { ConnectToGameUseCase } from './application/usecase/connect-to-game.usecase';
 import { SubmitAnswerUseCase } from './application/usecase/submit-answer.usecase';
 import { QuestionsModule } from '../questions/questions.module';
@@ -29,6 +29,7 @@ const QueryHandlers = [
   GetGameByIdUseCase,
   GetMyGamesUseCase,
   GetUserStatisticUseCase,
+  GetTopUsersUseCase,
 ];
 
 const CommandHandlers = [ConnectToGameUseCase, SubmitAnswerUseCase];
@@ -53,7 +54,6 @@ const CommandHandlers = [ConnectToGameUseCase, SubmitAnswerUseCase];
     PairGameRepository,
     PlayerRepository,
     GameQuestionRepository,
-    GameAnswerRepository,
     PairGameQueryRepository,
     UserStatisticRepository,
     MatchmakingService,
@@ -63,7 +63,6 @@ const CommandHandlers = [ConnectToGameUseCase, SubmitAnswerUseCase];
     PairGameRepository,
     PlayerRepository,
     GameQuestionRepository,
-    GameAnswerRepository,
     PairGameQueryRepository,
   ],
 })

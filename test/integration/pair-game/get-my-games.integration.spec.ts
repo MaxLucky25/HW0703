@@ -1,6 +1,6 @@
 /* eslint-disable */
 import { TestingModule } from '@nestjs/testing';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { IntegrationTestHelper } from '../../helpers/integration-test-helper';
 import { PairGameQueryRepository } from '../../../src/modules/quiz-game/pair-game/infrastructure/query/pair-game.query-repository';
 import { ConnectToGameUseCase } from '../../../src/modules/quiz-game/pair-game/application/usecase/connect-to-game.usecase';
@@ -19,6 +19,10 @@ import { GetMyGamesQuery } from '../../../src/modules/quiz-game/pair-game/applic
 import { GetMyGamesQueryParams } from '../../../src/modules/quiz-game/pair-game/api/input-dto/get-my-games-query-params.input-dto';
 import { GetUserStatisticUseCase } from '../../../src/modules/quiz-game/pair-game/application/query-usecase/get-user-statistic.usecase';
 import { GetUserStatisticQuery } from '../../../src/modules/quiz-game/pair-game/application/query-usecase/get-user-statistic.usecase';
+import { GetTopUsersUseCase } from '../../../src/modules/quiz-game/pair-game/application/query-usecase/get-top-users.usecase';
+import { GetTopUsersQuery } from '../../../src/modules/quiz-game/pair-game/application/query-usecase/get-top-users.usecase';
+import { GetTopUsersQueryParams } from '../../../src/modules/quiz-game/pair-game/api/input-dto/get-top-users-query-params.input-dto';
+import { LeaderboardSortCriterionDto } from '../../../src/modules/quiz-game/pair-game/api/input-dto/get-top-users-query-params.input-dto';
 import { UserStatistic } from '../../../src/modules/quiz-game/pair-game/domain/entities/user-statistic.entity';
 
 describe('PairGameQueryRepository.getMyGames Integration', () => {
@@ -29,6 +33,7 @@ describe('PairGameQueryRepository.getMyGames Integration', () => {
   let submitAnswerUseCase: SubmitAnswerUseCase;
   let getMyGamesUseCase: GetMyGamesUseCase;
   let getUserStatisticUseCase: GetUserStatisticUseCase;
+  let getTopUsersUseCase: GetTopUsersUseCase;
   let questionRepository: Repository<Question>;
   let gameQuestionRepository: Repository<GameQuestion>;
   let userRepository: Repository<User>;
@@ -72,6 +77,7 @@ describe('PairGameQueryRepository.getMyGames Integration', () => {
     submitAnswerUseCase = module.get(SubmitAnswerUseCase);
     getMyGamesUseCase = module.get(GetMyGamesUseCase);
     getUserStatisticUseCase = module.get(GetUserStatisticUseCase);
+    getTopUsersUseCase = module.get(GetTopUsersUseCase);
     questionRepository = dataSource.getRepository(Question);
     gameQuestionRepository = dataSource.getRepository(GameQuestion);
     userRepository = dataSource.getRepository(User);
@@ -496,6 +502,202 @@ describe('PairGameQueryRepository.getMyGames Integration', () => {
       expect(result.winsCount).toBeGreaterThanOrEqual(0);
       expect(result.lossesCount).toBeGreaterThanOrEqual(0);
       expect(result.drawsCount).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  type LeaderboardUserInput = {
+    login: string;
+    sumScore: number;
+    gamesCount: number;
+    winsCount: number;
+    lossesCount: number;
+    drawsCount: number;
+  };
+
+  const parseSortCriterion = (value: string): LeaderboardSortCriterionDto => {
+    const parsed = LeaderboardSortCriterionDto.parse(value);
+    if (!parsed) {
+      throw new Error(`Invalid sort expression used in tests: ${value}`);
+    }
+    return parsed;
+  };
+
+  const createLeaderboardUser = async (
+    payload: LeaderboardUserInput,
+  ): Promise<string> => {
+    const user = User.create({
+      login: payload.login,
+      email: `${payload.login}@leaderboard.test`,
+      passwordHash: 'leaderboardPassword',
+      emailConfirmationExpirationMinutes: 10,
+    });
+    user.confirmEmail();
+
+    const savedUser = await userRepository.save(user);
+
+    const statistic = UserStatistic.create(savedUser.id);
+    statistic.sumScore = payload.sumScore;
+    statistic.gamesCount = payload.gamesCount;
+    statistic.winsCount = payload.winsCount;
+    statistic.lossesCount = payload.lossesCount;
+    statistic.drawsCount = payload.drawsCount;
+    statistic.user = savedUser;
+
+    await userStatisticRepository.save(statistic);
+
+    return savedUser.id;
+  };
+
+  const cleanupLeaderboardUsers = async (userIds: string[]): Promise<void> => {
+    if (!userIds.length) return;
+    await userStatisticRepository.delete({ userId: In(userIds) });
+    await userRepository.delete(userIds);
+  };
+
+  describe('Leaderboard Integration Tests', () => {
+    it('должен сортировать игроков по avgScores с учетом дополнительных критериев', async () => {
+      const createdUserIds: string[] = [];
+      try {
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'leader-pro',
+            sumScore: 360,
+            gamesCount: 3,
+            winsCount: 3,
+            lossesCount: 0,
+            drawsCount: 0,
+          }),
+        );
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'leader-avg',
+            sumScore: 150,
+            gamesCount: 3,
+            winsCount: 2,
+            lossesCount: 1,
+            drawsCount: 0,
+          }),
+        );
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'leader-rookie',
+            sumScore: 90,
+            gamesCount: 3,
+            winsCount: 1,
+            lossesCount: 1,
+            drawsCount: 1,
+          }),
+        );
+
+        const queryParams = new GetTopUsersQueryParams();
+        queryParams.pageNumber = 1;
+        queryParams.pageSize = 5;
+        queryParams.sort = [
+          parseSortCriterion('avgScores desc'),
+          parseSortCriterion('sumScore desc'),
+        ];
+
+        const result = await getTopUsersUseCase.execute(
+          new GetTopUsersQuery(queryParams),
+        );
+
+        const logins = result.items.map((item) => item.player.login);
+        expect(logins.slice(0, 3)).toEqual([
+          'leader-pro',
+          'leader-avg',
+          'leader-rookie',
+        ]);
+
+        const leaderPro = result.items.find(
+          (item) => item.player.login === 'leader-pro',
+        );
+        expect(leaderPro).toMatchObject({
+          sumScore: 360,
+          avgScores: 120,
+          gamesCount: 3,
+          winsCount: 3,
+          lossesCount: 0,
+          drawsCount: 0,
+        });
+
+        const leaderAvg = result.items.find(
+          (item) => item.player.login === 'leader-avg',
+        );
+        expect(leaderAvg).toMatchObject({
+          avgScores: 50,
+          sumScore: 150,
+          gamesCount: 3,
+        });
+      } finally {
+        await cleanupLeaderboardUsers(createdUserIds);
+      }
+    });
+
+    it('должен поддерживать пагинацию и произвольные критерии сортировки (winsCount)', async () => {
+      const createdUserIds: string[] = [];
+      try {
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'wins-master',
+            sumScore: 200,
+            gamesCount: 10,
+            winsCount: 8,
+            lossesCount: 1,
+            drawsCount: 1,
+          }),
+        );
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'wins-pro',
+            sumScore: 180,
+            gamesCount: 10,
+            winsCount: 7,
+            lossesCount: 2,
+            drawsCount: 1,
+          }),
+        );
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'wins-mid',
+            sumScore: 150,
+            gamesCount: 10,
+            winsCount: 6,
+            lossesCount: 3,
+            drawsCount: 1,
+          }),
+        );
+        createdUserIds.push(
+          await createLeaderboardUser({
+            login: 'wins-rookie',
+            sumScore: 130,
+            gamesCount: 10,
+            winsCount: 5,
+            lossesCount: 4,
+            drawsCount: 1,
+          }),
+        );
+
+        const queryParams = new GetTopUsersQueryParams();
+        queryParams.pageNumber = 2;
+        queryParams.pageSize = 2;
+        queryParams.sort = [
+          parseSortCriterion('winsCount desc'),
+          parseSortCriterion('sumScore desc'),
+        ];
+
+        const result = await getTopUsersUseCase.execute(
+          new GetTopUsersQuery(queryParams),
+        );
+
+        expect(result.page).toBe(2);
+        expect(result.pageSize).toBe(2);
+        expect(result.items).toHaveLength(2);
+
+        const pageLogins = result.items.map((item) => item.player.login);
+        expect(pageLogins).toEqual(['wins-mid', 'wins-rookie']);
+      } finally {
+        await cleanupLeaderboardUsers(createdUserIds);
+      }
     });
   });
 });

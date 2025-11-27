@@ -26,8 +26,10 @@ import { SubmitAnswerCommand } from '../application/usecase/submit-answer.usecas
 import { GetMyGamesQueryParams } from './input-dto/get-my-games-query-params.input-dto';
 import { PaginatedViewDto } from '../../../../core/dto/base.paginated.view-dto';
 import { UserStatisticViewDto } from './view-dto/user-statistic.view-dto';
+import { GetTopUsersQuery } from '../application/query-usecase/get-top-users.usecase';
+import { GetTopUsersQueryParams } from './input-dto/get-top-users-query-params.input-dto';
+import { TopUsersViewDto } from './view-dto/top-users-view-dto';
 
-@UseGuards(JwtAuthGuard)
 @Controller('pair-game-quiz')
 export class PairGameController {
   constructor(
@@ -35,6 +37,7 @@ export class PairGameController {
     private commandBus: CommandBus,
   ) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get('pairs/my-current')
   async getCurrentGame(
     @ExtractUserForJwtGuard() user: UserContextDto,
@@ -42,6 +45,7 @@ export class PairGameController {
     return this.queryBus.execute(new GetCurrentGameQuery(user.id));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('pairs/my')
   async getMyGames(
     @Query() queryParams: GetMyGamesQueryParams,
@@ -50,6 +54,7 @@ export class PairGameController {
     return this.queryBus.execute(new GetMyGamesQuery(user.id, queryParams));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('pairs/:id')
   async getGameById(
     @Param('id', UuidValidationPipe) id: string,
@@ -58,6 +63,7 @@ export class PairGameController {
     return this.queryBus.execute(new GetGameByIdQuery(id, user.id));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('pairs/connection')
   @HttpCode(HttpStatus.OK)
   async connectToGame(
@@ -66,6 +72,7 @@ export class PairGameController {
     return this.commandBus.execute(new ConnectToGameCommand(user.id));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('pairs/my-current/answers')
   @HttpCode(HttpStatus.OK)
   async submitAnswer(
@@ -75,10 +82,18 @@ export class PairGameController {
     return this.commandBus.execute(new SubmitAnswerCommand(user.id, body));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('users/my-statistic')
   async getMyStatistic(
     @ExtractUserForJwtGuard() user: UserContextDto,
   ): Promise<UserStatisticViewDto> {
     return this.queryBus.execute(new GetUserStatisticQuery(user.id));
+  }
+
+  @Get('users/top')
+  async getTopUsers(
+    @Query() queryParams: GetTopUsersQueryParams,
+  ): Promise<PaginatedViewDto<TopUsersViewDto[]>> {
+    return this.queryBus.execute(new GetTopUsersQuery(queryParams));
   }
 }
