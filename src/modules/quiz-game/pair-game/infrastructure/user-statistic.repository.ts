@@ -98,7 +98,7 @@ export class UserStatisticRepository {
   ): void {
     const avgScoreSelectAlias = 'stat_avg_score_sort';
     const avgScoreSelectExpression =
-      'stat.sumScore::numeric / NULLIF(stat.gamesCount, 0)';
+      'stat.sum_score::numeric / NULLIF(stat.games_count, 0)';
     let avgScoreSelectAdded = false;
 
     // Проходим по каждому критерию сортировки
